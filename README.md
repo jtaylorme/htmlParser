@@ -55,5 +55,5 @@ a simple c++ html parser with limited xPath support
 
 ## Usage
 
-Basic usage please see demo [parse.cpp](parse.cpp).
+Basic usage please see demo [parser_test.cpp](parser_test.cpp).
 
