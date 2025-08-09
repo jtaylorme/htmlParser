@@ -61,5 +61,5 @@ a simple c++ html parser
 
 ## Usage
 
-Basic usage please see demo [test.cpp](test.cpp).
+Basic usage please see demo [parse.cpp](parse.cpp).
 
