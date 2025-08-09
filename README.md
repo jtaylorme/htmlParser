@@ -1,13 +1,7 @@
 # htmlparser
 
-a simple c++ html parser
-
-## Intro
-
-- support html and xhtml document
-- support getElementById(ClassName/TagName)
-- support simple XPath select interface
-
+a simple c++ html parser with limited xPath support
+ 
 ## Changes from rangerlee version
 
 -TagName Comparison CaseInsensitive
