@@ -9,7 +9,7 @@
  * Changed Version Copyright (c) 2025 DSI (jtaylor@jtdata.com)
  * Latest version available at: https://github.com/jtaylorme/html_parser
  *
- * 
+  * Version 1.0.0 
  */
 
 #ifndef HTMLPARSER_HPP_
