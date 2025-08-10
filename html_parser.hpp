@@ -9,7 +9,7 @@
  * Changed Version Copyright (c) 2025 DSI (jtaylor@jtdata.com)
  * Latest version available at: https://github.com/jtaylorme/html_parser
  *
-  * Version 1.0.0 
+ * Version 1.0.0 
  */
 
 #ifndef HTMLPARSER_HPP_
@@ -113,12 +113,11 @@ public:
     }
 
 
-    shared_ptr<HtmlElement> GetElementById(const std::string& id) {
-        // MessageBox(NULL, id.c_str(), "YO", MB_OK);
+    shared_ptr<HtmlElement> GetElementById(const std::string& id) 
+    {
         for (HtmlElement::ChildIterator it = children.begin(); it != children.end(); ++it) {
             if ((*it)->GetAttribute("id") == id)
             {
-                //  MessageBox(NULL, id.c_str(), "YO2", MB_OK);
                 return *it;
             }
             shared_ptr<HtmlElement> r = (*it)->GetElementById(id);
@@ -417,7 +416,7 @@ public:
 
         }
         else {
-            el->children[0]->value = text; // safe now
+            el->children[0]->value = text; 
         }
 
         return 0;
@@ -557,9 +556,7 @@ private:
 
     void GetElementsById(const std::string& id, std::vector<shared_ptr<HtmlElement> >& result) {
         std::string xpath = "//*[@id='" + EscapeForXPath(id) + "']";
-        //   if (id == "description") myMsg(9, id + " - " + xpath);
         SelectElement(xpath, result);
-        // if (id == "description") myMsg(result.size(), id + " - " + xpath);
         return;
     }
 
