@@ -1,6 +1,6 @@
 # htmlparser
 
-a simple c++ html parser with limited xPath support.  
+A simple c++ html parser with limited xPath support.  
 
 See Wiki for documentation.
 
