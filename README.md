@@ -1,6 +1,13 @@
 # htmlparser
 
-a simple c++ html parser with limited xPath support.  All my work has been on Windows and no good way to test other platforms so may need a bit of tweaking if you port.
+a simple c++ html parser with limited xPath support.  
+
+See Wiki for documentation.
+
+All my work has been on Windows and no good way to test other platforms so may need a bit of tweaking if you port.
+
+
+
  
 ## Changes from rangerlee version
 
