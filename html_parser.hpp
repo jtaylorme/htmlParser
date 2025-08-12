@@ -36,13 +36,7 @@ using std::weak_ptr;
 static std::wstring toLower(const std::wstring& str);
 
  std::wstring EscapeForXPath(const std::wstring& value);
-  void myMsg(std::string caption, std::string txt);
-  void myMsg(std::string caption, int txt);
-  void myMsg(int caption, int txt);
-  void myMsg(int caption, std::string txt);
-  void myMsg(std::wstring caption, std::wstring txt);
-  void myMsg(std::wstring caption, int txt);
-  void myMsg(int caption, std::wstring txt);
+ 
 
 
 /**
