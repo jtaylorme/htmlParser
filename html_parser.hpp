@@ -9,7 +9,7 @@
  * Changed Version Copyright (c) 2025 DSI (jtaylor@jtdata.com)
  * Latest version available at: https://github.com/jtaylorme/html_parser
  *
- * Version 1.0.0 
+ * Version 1.0.1 
  */
 
 #ifndef HTMLPARSER_HPP_
@@ -24,15 +24,25 @@
 #include <set>
 #include <unordered_set>
 #include <memory>
-
+#include <algorithm>   // std::transform
+#include <sstream>     // std::wistringstream, std::wostringstream
+#include <cwctype>     // std::towlower
+#include <cwchar>      // wcsncmp, wcslen
 
 using std::enable_shared_from_this;
 using std::shared_ptr;
 using std::weak_ptr;
 
-static std::wstring toLowerW(const std::wstring& str);
-static std::string toLower(const std::string& str);
-inline std::string EscapeForXPath(const std::string& value);
+static std::wstring toLower(const std::wstring& str);
+
+ std::wstring EscapeForXPath(const std::wstring& value);
+  void myMsg(std::string caption, std::string txt);
+  void myMsg(std::string caption, int txt);
+  void myMsg(int caption, int txt);
+  void myMsg(int caption, std::string txt);
+  void myMsg(std::wstring caption, std::wstring txt);
+  void myMsg(std::wstring caption, int txt);
+  void myMsg(int caption, std::wstring txt);
 
 
 /**
@@ -49,28 +59,18 @@ public:
     /**
      * for children traversals.
      */
-    typedef std::vector<shared_ptr<HtmlElement> >::const_iterator ChildIterator;
+    typedef std::vector<shared_ptr<HtmlElement>>::const_iterator ChildIterator;
 
-    const ChildIterator ChildBegin() {
-        return children.begin();
-    }
-
-    const ChildIterator ChildEnd() {
-        return children.end();
-    }
+    ChildIterator ChildBegin() const { return children.cbegin(); }
+    ChildIterator ChildEnd()   const { return children.cend(); }
 
     /**
      * for attribute traversals.
      */
-    typedef std::map<std::string, std::string>::const_iterator AttributeIterator;
+    typedef std::map<std::wstring, std::wstring>::const_iterator AttributeIterator;
 
-    const AttributeIterator AttributeBegin() {
-        return attribute.begin();
-    }
-
-    const AttributeIterator AttributeEnd() {
-        return attribute.end();
-    }
+    AttributeIterator AttributeBegin() const { return attribute.cbegin(); }
+    AttributeIterator AttributeEnd()   const { return attribute.cend(); }
 
 public:
 
@@ -80,24 +80,24 @@ public:
         : parent(p) {
     }
 
-    std::string GetAttribute(const std::string& k) {
+    std::wstring GetAttribute(const std::wstring& k) {
         if (attribute.find(k) != attribute.end()) {
             return attribute[k];
         }
-        return "";
+        return L"";
     }
 
-    void SetAttribute(const std::string& j, const std::string& k) {
+    void SetAttribute(const std::wstring& j, const std::wstring& k) {
         if (k.empty()) {
             attribute.erase(j);
-            if (j == "class") classlist.clear();
+            if (j == L"class") classlist.clear();
         }
         else {
             attribute[j] = k;
-            if (j == "class") {
+            if (j == L"class") {
                 classlist.clear();
-                std::istringstream iss(k);
-                std::string token;
+                std::wistringstream iss(k);
+                std::wstring token;
                 while (iss >> token) {
                     classlist.push_back(token);
                 }
@@ -106,17 +106,16 @@ public:
     }
 
 
-    std::map<std::string, std::string> GetAttributes() {
+    std::map<std::wstring, std::wstring> GetAttributes() {
 
         return attribute;
-
     }
 
-
-    shared_ptr<HtmlElement> GetElementById(const std::string& id) 
+    shared_ptr<HtmlElement> GetElementById(const std::wstring& id) 
     {
         for (HtmlElement::ChildIterator it = children.begin(); it != children.end(); ++it) {
-            if ((*it)->GetAttribute("id") == id)
+            std::wstring gid = (*it)->GetAttribute(L"id");
+            if ((*it)->GetAttribute(L"id") == id)
             {
                 return *it;
             }
@@ -128,37 +127,36 @@ public:
         return shared_ptr<HtmlElement>();
     }
 
-    std::vector<shared_ptr<HtmlElement> > GetElementsById(const std::string& id) {
+    std::vector<shared_ptr<HtmlElement> > GetElementsById(const std::wstring& id) {
         std::vector<shared_ptr<HtmlElement> > result;
         GetElementsById(id, result);
         return result;
     }
+  
 
-    
-
-    std::vector<shared_ptr<HtmlElement> > GetElementsByClassName(const std::string& name) {
+    std::vector<shared_ptr<HtmlElement> > GetElementsByClassName(const std::wstring& name, const std::wstring& tag = L"") {
         std::vector<shared_ptr<HtmlElement> > result;
-        GetElementsByClassName(name, result);
+        GetElementsByClassName(name, tag, result);
         return result;
     }
 
     // Inside HtmlElement class (public:)
-    std::vector<std::string> GetClassList() const {
+    std::vector<std::wstring> GetClassList() const {
         return classlist;
     }
 
-    bool HasClass(const std::string& cls) const {
+    bool HasClass(const std::wstring& cls) const {
         return std::find(classlist.begin(), classlist.end(), cls) != classlist.end();
     }
 
-    void AddClass(const std::string& cls) {
+    void AddClass(const std::wstring& cls) {
         if (!HasClass(cls)) {
             classlist.push_back(cls);
             UpdateClassAttribute();
         }
     }
 
-    void RemoveClass(const std::string& cls) {
+    void RemoveClass(const std::wstring& cls) {
         auto it = std::remove(classlist.begin(), classlist.end(), cls);
         if (it != classlist.end()) {
             classlist.erase(it, classlist.end());
@@ -166,7 +164,7 @@ public:
         }
     }
 
-    void ToggleClass(const std::string& cls) {
+    void ToggleClass(const std::wstring& cls) {
         if (HasClass(cls))
             RemoveClass(cls);
         else
@@ -175,25 +173,25 @@ public:
 
     void ClearClasses() {
         classlist.clear();
-        attribute.erase("class");
+        attribute.erase(L"class");
     }
 
 
-    std::vector<shared_ptr<HtmlElement> > GetElementByTagName(const std::string& name) {
+    std::vector<shared_ptr<HtmlElement> > GetElementByTagName(const std::wstring& name) {
         std::vector<shared_ptr<HtmlElement> > result;
         GetElementByTagName(name, result);
         return result;
     }
 
     // Enhanced SelectElement to support wildcard `*` and a few basic XPath-like improvements
-    void SelectElement(const std::string& rule, std::vector<shared_ptr<HtmlElement> >& result) {
-        if (rule.empty() || rule.at(0) != '/' || name == "plain") return;
-        std::string::size_type pos = 0;
-        if (rule.size() >= 2 && rule.at(1) == '/') {
+    void SelectElement(const std::wstring& rule, std::vector<shared_ptr<HtmlElement> >& result) {
+        if (rule.empty() || rule.at(0) != L'/' || name == L"plain") return;
+        std::wstring::size_type pos = 0;
+        if (rule.size() >= 2 && rule.at(1) == L'/') {
             std::vector<shared_ptr<HtmlElement> > temp;
             GetAllElement(temp);
             pos = 1;
-            std::string next = rule.substr(pos);
+            std::wstring next = rule.substr(pos);
             if (next.empty()) {
                 for (size_t i = 0; i < temp.size(); i++) {
                     InsertIfNotExists(result, temp[i]);
@@ -206,9 +204,9 @@ public:
             }
         }
         else {
-            std::string::size_type p = rule.find('/', 1);
-            std::string line;
-            if (p == std::string::npos) {
+            std::wstring::size_type p = rule.find('/', 1);
+            std::wstring line;
+            if (p == std::wstring::npos) {
                 line = rule;
                 pos = rule.size();
             }
@@ -218,20 +216,20 @@ public:
             }
 
             enum { x_ele, x_wait_attr, x_attr, x_val };
-            std::string ele, attr, oper, val, cond;
+            std::wstring ele, attr, oper, val, cond;
             int state = x_ele;
             for (p = 1; p < pos; ) {
-                char c = line.at(p++);
+                wchar_t c = line.at(p++);
                 switch (state) {
                 case x_ele: {
-                    if (c == '@') {
+                    if (c == L'@') {
                         state = x_attr;
                     }
-                    else if (c == '!') {
+                    else if (c == L'!') {
                         state = x_wait_attr;
                         cond.append(1, c);
                     }
-                    else if (c == '[') {
+                    else if (c == L'[') {
                         state = x_wait_attr;
                     }
                     else {
@@ -241,22 +239,22 @@ public:
                           break;
 
                 case x_wait_attr: {
-                    if (c == '@') state = x_attr;
-                    else if (c == '!') {
+                    if (c == L'@') state = x_attr;
+                    else if (c == L'!') {
                         cond.append(1, c);
                     }
                 }
                                 break;
 
                 case x_attr: {
-                    if (c == '!') {
+                    if (c == L'!') {
                         oper.append(1, c);
                     }
-                    else if (c == '=') {
+                    else if (c == L'=') {
                         oper.append(1, c);
                         state = x_val;
                     }
-                    else if (c == ']') {
+                    else if (c == L']') {
                         state = x_ele;
                     }
                     else {
@@ -266,7 +264,7 @@ public:
                            break;
 
                 case x_val: {
-                    if (c == ']') {
+                    if (c == L']') {
                         state = x_ele;
                     }
                     else {
@@ -277,11 +275,11 @@ public:
                 }
             }
 
-            if (!val.empty() && val.at(0) == '\'') {
+            if (!val.empty() && val.at(0) == L'\'') {
                 val.erase(val.begin());
             }
 
-            if (!val.empty() && val.at(val.size() - 1) == '\'') {
+            if (!val.empty() && val.at(val.size() - 1) == L'\'') {
                 val.pop_back();
             }
 
@@ -292,20 +290,20 @@ public:
                 }
             }
 
-            if (cond == "!") {
+            if (cond == L"!") {
                 if (!attr.empty() && matched) {
                     if (!oper.empty()) {
-                        std::string v = attribute[attr];
-                        if (oper == "=") {
+                        std::wstring v = attribute[attr];
+                        if (oper == L"=") {
                             if (v == val) matched = false;
-                            if (attr == "class") {
+                            if (attr == L"class") {
                                 if (!HasClass(val)) matched = false;
                             }
 
                         }
-                        else if (oper == "!=") {
+                        else if (oper == L"!=") {
                             if (v == val) matched = false;
-                            if (attr == "class") {
+                            if (attr == L"class") {
                                 if (HasClass(val)) matched = false;
                             }
 
@@ -322,17 +320,17 @@ public:
                         matched = false;
                     }
                     else {
-                        std::string v = attribute[attr];
-                        if (oper == "=") {
+                        std::wstring v = attribute[attr];
+                        if (oper == L"=") {
                             if (v != val) matched = false;
-                            if (attr == "class") {
+                            if (attr == L"class") {
                                 if (!HasClass(val)) matched = false;
                             }
 
                         }
-                        else if (oper == "!=") {
+                        else if (oper == L"!=") {
                             if (v == val) matched = false;
-                            if (attr == "class") {
+                            if (attr == L"class") {
                                 if (HasClass(val)) matched = false;
                             }
 
@@ -341,7 +339,7 @@ public:
                 }
             }
 
-            std::string next = rule.substr(pos);
+            std::wstring next = rule.substr(pos);
             if (matched) {
                 if (next.empty())
                     InsertIfNotExists(result, shared_from_this());
@@ -405,7 +403,7 @@ public:
 
 
 
-    int SetInnerText(std::string text) {
+    int SetInnerText(std::wstring text) {
         auto el = shared_from_this();
 
         if (el->children.empty()) {
@@ -439,8 +437,8 @@ public:
     }
 
 
-    const std::string& GetValue() {
-        if (value.empty() && children.size() == 1 && children[0]->GetName() == "plain") {
+    const std::wstring& GetValue() {
+        if (value.empty() && children.size() == 1 && children[0]->GetName() == L"plain") {
             return children[0]->GetValue();
         }
 
@@ -448,22 +446,22 @@ public:
     }
 
 
-    const std::string& GetName() {
+    const std::wstring& GetName() {
         return name;
     }
 
-    std::string text() {
-        std::string str;
+    std::wstring text() {
+        std::wstring str;
         PlainStylize(str);
         return str;
     }
 
-    void PlainStylize(std::string& str) {
-        if (name == "head" || name == "meta" || name == "style" || name == "script" || name == "link") {
+    void PlainStylize(std::wstring& str) {
+        if (name == L"head" || name == L"meta" || name == L"style" || name == L"script" || name == L"link") {
             return;
         }
 
-        if (name == "plain") {
+        if (name == L"plain") {
             str.append(value);
             return;
         }
@@ -472,26 +470,26 @@ public:
             children[i]->PlainStylize(str);
 
             if (++i < children.size()) {
-                std::string ele = children[i]->GetName();
-                if (ele == "td") {
-                    str.append("\t");
+                std::wstring ele = children[i]->GetName();
+                if (ele == L"td") {
+                    str.append( L"\t");
                 }
-                else if (ele == "tr" || ele == "br" || ele == "div" || ele == "p" || ele == "hr" || ele == "area" ||
-                    ele == "h1" || ele == "h2" || ele == "h3" || ele == "h4" || ele == "h5" || ele == "h6" || ele == "h7") {
-                    str.append("\n");
+                else if (ele == L"tr" || ele == L"br" || ele == L"div" || ele == L"p" || ele == L"hr" || ele == L"area" ||
+                    ele == L"h1" || ele == L"h2" || ele == L"h3" || ele == L"h4" || ele == L"h5" || ele == L"h6" || ele == L"h7") {
+                    str.append( L"\n");
                 }
             }
         }
     }
 
-    std::string OuterHTML() {
-        std::string str;
+    std::wstring OuterHTML() {
+        std::wstring str;
         HtmlStylize(str);
         return str;
     }
 
-    std::string InnerHTML() {
-        std::string str;
+    std::wstring InnerHTML() {
+        std::wstring str;
 
         // Add inner text if there are no children
         if (children.empty()) {
@@ -507,7 +505,7 @@ public:
     }
 
 
-    void HtmlStylize(std::string& str) {
+    void HtmlStylize(std::wstring& str) {
         if (name.empty()) {
             for (size_t i = 0; i < children.size(); i++) {
                 children[i]->HtmlStylize(str);
@@ -515,17 +513,17 @@ public:
 
             return;
         }
-        else if (name == "plain") {
+        else if (name == L"plain") {
             str.append(value);
             return;
         }
 
-        str.append("<" + name);
-        std::map<std::string, std::string>::const_iterator it = attribute.begin();
+        str.append( L"<" + name);
+        std::map<std::wstring, std::wstring>::const_iterator it = attribute.begin();
         for (; it != attribute.end(); it++) {
-            str.append(" " + it->first + "=\"" + it->second + "\"");
+            str.append(L" " + it->first + L"=\"" + it->second + L"\"");
         }
-        str.append(">");
+        str.append(L">");
 
         if (children.empty()) {
             str.append(value);
@@ -536,33 +534,37 @@ public:
             }
         }
 
-        str.append("</" + name + ">");
+        str.append(L"</" + name + L">");
     }
 
 private:
    
 
-    void GetElementsByClassName(const std::string& cls, std::vector<std::shared_ptr<HtmlElement>>& result)
+    void GetElementsByClassName(const std::wstring& cls, const std::wstring& tag, std::vector<std::shared_ptr<HtmlElement>>& result)
     {
 
         if (HasClass(cls))
-            InsertIfNotExists(result, shared_from_this());
-
+        {
+            if (tag != L"" && toLower(tag) == toLower(this->GetName()))
+                InsertIfNotExists(result, shared_from_this());
+            if (tag == L"")
+                InsertIfNotExists(result, shared_from_this());
+        }
         for (ChildIterator it = ChildBegin(); it != ChildEnd(); ++it) {
-            (*it)->GetElementsByClassName(cls, result);
+            (*it)->GetElementsByClassName(cls, tag, result);
         }
     }
 
 
-    void GetElementsById(const std::string& id, std::vector<shared_ptr<HtmlElement> >& result) {
-        std::string xpath = "//*[@id='" + EscapeForXPath(id) + "']";
+    void GetElementsById(const std::wstring& id, std::vector<shared_ptr<HtmlElement> >& result) {
+        std::wstring xpath = L"//*[@id='" + EscapeForXPath(id) + L"']";
         SelectElement(xpath, result);
         return;
     }
 
-    void GetElementByTagName(const std::string& name, std::vector<shared_ptr<HtmlElement>>& result) {
+    void GetElementByTagName(const std::wstring& name, std::vector<shared_ptr<HtmlElement>>& result) {
         for (HtmlElement::ChildIterator it = children.begin(); it != children.end(); ++it) {
-            if (_stricmp((*it)->name.c_str(), name.c_str()) == 0)
+            if (_wcsicmp((*it)->name.c_str(), name.c_str()) == 0)
                 InsertIfNotExists(result, *it);
 
             (*it)->GetElementByTagName(name, result);
@@ -577,11 +579,11 @@ private:
         }
     }
 
-    void Parse(const std::string& attr) {
+    void Parse(const std::wstring& attr) {
         size_t index = 0;
-        std::string k;
-        std::string v;
-        char split = ' ';
+        std::wstring k;
+        std::wstring v;
+        wchar_t split = L' ';
         bool quota = false;
 
         enum ParseAttrState {
@@ -593,21 +595,21 @@ private:
         ParseAttrState state = PARSE_ATTR_KEY;
 
         while (attr.size() > index) {
-            char input = attr.at(index);
+            wchar_t input = attr.at(index);
             switch (state) {
             case PARSE_ATTR_KEY: {
-                if (input == '\t' || input == '\r' || input == '\n') {
+                if (input == L'\t' || input == L'\r' || input == L'\n') {
                 }
-                else if (input == '\'' || input == '"') {
-                    std::cerr << "WARN : attribute unexpected " << input << std::endl;
+                else if (input == L'\'' || input == L'"') {
+                    std::wcerr << L"WARN : attribute unexpected " << input << std::endl;
                 }
-                else if (input == ' ') {
+                else if (input == L' ') {
                     if (!k.empty()) {
                         attribute[k] = v;
                         k.clear();
                     }
                 }
-                else if (input == '=') {
+                else if (input == L'=') {
                     state = PARSE_ATTR_VALUE_BEGIN;
                 }
                 else {
@@ -617,14 +619,14 @@ private:
                                break;
 
             case PARSE_ATTR_VALUE_BEGIN: {
-                if (input == '\t' || input == '\r' || input == '\n' || input == ' ') {
+                if (input == L'\t' || input == L'\r' || input == L'\n' || input == L' ') {
                     if (!k.empty()) {
                         attribute[k] = v;
                         k.clear();
                     }
                     state = PARSE_ATTR_KEY;
                 }
-                else if (input == '\'' || input == '"') {
+                else if (input == L'\'' || input == L'"') {
                     split = input;
                     quota = true;
                     state = PARSE_ATTR_VALUE_END;
@@ -638,7 +640,7 @@ private:
                                        break;
 
             case PARSE_ATTR_VALUE_END: {
-                if ((quota && input == split) || (!quota && (input == '\t' || input == '\r' || input == '\n' || input == ' '))) {
+                if ((quota && input == split) || (!quota && (input == L'\t' || input == L'\r' || input == L'\n' || input == L' '))) {
                     attribute[k] = v;
                     k.clear();
                     v.clear();
@@ -660,16 +662,16 @@ private:
 
         //trim
         if (!value.empty()) {
-            value.erase(0, value.find_first_not_of(" "));
-            value.erase(value.find_last_not_of(" ") + 1);
+            value.erase(0, value.find_first_not_of(L" "));
+            value.erase(value.find_last_not_of(L" ") + 1);
         }
 
         // After parsing attributes into `attribute`
-        auto it = attribute.find("class");
+        auto it = attribute.find( L"class");
         if (it != attribute.end()) {
             classlist.clear();
-            std::istringstream iss(it->second);
-            std::string token;
+            std::wistringstream iss(it->second);
+            std::wstring token;
             while (iss >> token) {
                 classlist.push_back(token);
             }
@@ -690,21 +692,21 @@ private:
 private:
     void UpdateClassAttribute() {
         if (classlist.empty()) {
-            attribute.erase("class");
+            attribute.erase( L"class");
             return;
         }
-        std::string combined;
+        std::wstring combined;
         for (size_t i = 0; i < classlist.size(); ++i) {
-            if (i > 0) combined += " ";
+            if (i > 0) combined += L" ";
             combined += classlist[i];
         }
-        attribute["class"] = combined;
+        attribute[L"class"] = combined;
     }
 private:
-    std::string name;
-    std::string value;
-    std::map<std::string, std::string> attribute;
-    std::vector<std::string> classlist;
+    std::wstring name;
+    std::wstring value;
+    std::map<std::wstring, std::wstring> attribute;
+    std::vector<std::wstring> classlist;
     weak_ptr<HtmlElement> parent;
     std::vector<shared_ptr<HtmlElement> > children;
 };
@@ -721,22 +723,22 @@ public:
     std::shared_ptr<HtmlElement> GetRoot() {
         return root_;
     }
-    shared_ptr<HtmlElement> GetElementById(const std::string& id) {
+    shared_ptr<HtmlElement> GetElementById(const std::wstring& id) {
         return root_->GetElementById(id);
     }
 
-    std::vector<shared_ptr<HtmlElement> >  GetElementsById(const std::string& id) {
+    std::vector<shared_ptr<HtmlElement> >  GetElementsById(const std::wstring& id) {
         return root_->GetElementsById(id);
     }
     
-    std::vector<shared_ptr<HtmlElement> > GetElementsByClassName(const std::string& name) {
+    std::vector<shared_ptr<HtmlElement> > GetElementsByClassName(const std::wstring& name) {
         return root_->GetElementsByClassName(name);
     }
-    std::vector<shared_ptr<HtmlElement> > GetElementByTagName(const std::string& name) {
+    std::vector<shared_ptr<HtmlElement> > GetElementByTagName(const std::wstring& name) {
         return root_->GetElementByTagName(name);
     }
 
-    std::vector<shared_ptr<HtmlElement> > SelectElement(const std::string& rule, std::vector<shared_ptr<HtmlElement>>& result) {
+    std::vector<shared_ptr<HtmlElement> > SelectElement(const std::wstring& rule, std::vector<shared_ptr<HtmlElement>>& result) {
         HtmlElement::ChildIterator it = root_->ChildBegin();
         for (; it != root_->ChildEnd(); it++) {
             (*it)->SelectElement(rule, result);
@@ -745,13 +747,13 @@ public:
         return result;
     }
 
-    std::string OuterHTML() {
+    std::wstring OuterHTML() {
         return root_->OuterHTML();
     }
-    std::string InnerHTML() {
-        return InnerHTML();
+    std::wstring InnerHTML() {
+        return root_->InnerHTML();
     }
-    std::string text() {
+    std::wstring text() {
         return root_->text();
     }
 
@@ -766,8 +768,8 @@ private:
 class HtmlParser {
 public:
     HtmlParser() {
-        static const std::string token[] = { "br", "hr", "img", "input", "link", "meta",
-        "area", "base", "col", "command", "embed", "keygen", "param", "source", "track", "wbr" };
+        static const std::wstring token[] = { L"br", L"hr", L"img", L"input", L"link", L"meta",
+        L"area", L"base", L"col", L"command", L"embed", L"keygen", L"param", L"source", L"track", L"wbr" };
         self_closing_tags_.insert(token, token + sizeof(token) / sizeof(token[0]));
     }
 
@@ -777,17 +779,17 @@ public:
      * @param len
      * @return html document object
      */
-    shared_ptr<HtmlDocument> Parse(const char* data, size_t len) {
+    shared_ptr<HtmlDocument> Parse(const wchar_t* data, size_t len) {
         stream_ = data;
         length_ = len;
         size_t index = 0;
         root_.reset(new HtmlElement());
         while (length_ > index) {
-            char input = stream_[index];
-            if (input == '\r' || input == '\n' || input == '\t' || input == ' ') {
+            wchar_t input = stream_[index];
+            if (input == L'\r' || input == L'\n' || input == L'\t' || input == L' ') {
                 index++;
             }
-            else if (input == '<') {
+            else if (input == L'<') {
                 index = ParseElement(index, root_);
             }
             else {
@@ -803,27 +805,27 @@ public:
      * @param data
      * @return html document object
      */
-    shared_ptr<HtmlDocument> Parse(const std::string& data) {
+    shared_ptr<HtmlDocument> Parse(const std::wstring& data) {
         return Parse(data.data(), data.size());
     }
 
 private:
     size_t ParseElement(size_t index, shared_ptr<HtmlElement>& element) {
         while (length_ > index) {
-            char input = stream_[index + 1];
-            if (input == '!') {
-                if (strncmp(stream_ + index, "<!--", 4) == 0) {
-                    return SkipUntil(index + 2, "-->");
+            wchar_t input = stream_[index + 1];
+            if (input == L'!') {
+                if (wcsncmp(stream_ + index, L"<!--", 4) == 0) {
+                    return SkipUntil(index + 2, L"-->");
                 }
                 else {
-                    return SkipUntil(index + 2, '>');
+                    return SkipUntil(index + 2, L'>');
                 }
             }
-            else if (input == '/') {
-                return SkipUntil(index, '>');
+            else if (input == L'/') {
+                return SkipUntil(index, L'>');
             }
-            else if (input == '?') {
-                return SkipUntil(index, "?>");
+            else if (input == L'?') {
+                return SkipUntil(index, L"?>");
             }
 
             shared_ptr<HtmlElement> self(new HtmlElement(element));
@@ -837,25 +839,25 @@ private:
 
             ParseElementState state = PARSE_ELEMENT_TAG;
             index++;
-            char split = 0;
-            std::string attr;
+            wchar_t split = 0;
+            std::wstring attr;
 
             while (length_ > index) {
                 switch (state) {
                 case PARSE_ELEMENT_TAG: {
-                    char input = stream_[index];
-                    if (input == ' ' || input == '\r' || input == '\n' || input == '\t') {
+                    wchar_t input = stream_[index];
+                    if (input == L' ' || input == L'\r' || input == L'\n' || input == L'\t') {
                         if (!self->name.empty()) {
                             state = PARSE_ELEMENT_ATTR;
                         }
                         index++;
                     }
-                    else if (input == '/') {
+                    else if (input == L'/') {
                         self->Parse(attr);
                         element->children.push_back(self);
-                        return SkipUntil(index, '>');
+                        return SkipUntil(index, L'>');
                     }
-                    else if (input == '>') {
+                    else if (input == L'>') {
                         if (self_closing_tags_.find(self->name) != self_closing_tags_.end()) {
                             element->children.push_back(self);
                             return ++index;
@@ -871,9 +873,9 @@ private:
                                       break;
 
                 case PARSE_ELEMENT_ATTR: {
-                    char input = stream_[index];
-                    if (input == '>') {
-                        if (stream_[index - 1] == '/') {
+                    wchar_t input = stream_[index];
+                    if (input == L'>') {
+                        if (stream_[index - 1] == L'/') {
                             attr.erase(attr.size() - 1);
                             self->Parse(attr);
                             element->children.push_back(self);
@@ -895,8 +897,8 @@ private:
                                        break;
 
                 case PARSE_ELEMENT_VALUE: {
-                    if (self->name == "script" || self->name == "noscript" || self->name == "style") {
-                        std::string close = "</" + self->name + ">";
+                    if (self->name == L"script" || self->name == L"noscript" || self->name == L"style") {
+                        std::wstring close = L"</" + self->name + L">";
 
                         size_t pre = index;
                         index = SkipUntil(index, close.c_str());
@@ -908,23 +910,23 @@ private:
                         return index;
                     }
 
-                    char input = stream_[index];
-                    if (input == '<') {
+                    wchar_t input = stream_[index];
+                    if (input == L'<') {
                         if (!self->value.empty()) {
                             shared_ptr<HtmlElement> child(new HtmlElement(self));
-                            child->name = "plain";
+                            child->name = L"plain";
                             child->value.swap(self->value);
                             self->children.push_back(child);
                         }
 
-                        if (stream_[index + 1] == '/') {
+                        if (stream_[index + 1] == L'/') {
                             state = PARSE_ELEMENT_TAG_END;
                         }
                         else {
                             index = ParseElement(index, self);
                         }
                     }
-                    else if (input != '\r' && input != '\n' && input != '\t') {
+                    else if (input != L'\r' && input != L'\n' && input != L'\t') {
                         self->value.append(stream_ + index, 1);
                         index++;
                     }
@@ -934,40 +936,61 @@ private:
                 }
                                         break;
 
-                case PARSE_ELEMENT_TAG_END: {
-                    index += 2;
-                    std::string selfname = self->name + ">";
-                    if (strncmp(stream_ + index, selfname.c_str(), selfname.size())) {
-                        size_t pre = index;
-                        index = SkipUntil(index, ">");
-                        std::string value;
-                        if (index > (pre + 1))
-                            value.append(stream_ + pre, index - pre - 1);
-                        else
-                            value.append(stream_ + pre, index - pre);
+                case PARSE_ELEMENT_TAG_END:
+                {
+                    index += 2; // skip "</"
 
+                    // Read tag name only (stop at space, tab, newline, or '>')
+                    size_t nameStart = index;
+                    while (length_ > index && stream_[index] != L'>' &&
+                        stream_[index] != L' ' && stream_[index] != L'\t' &&
+                        stream_[index] != L'\r' && stream_[index] != L'\n')
+                    {
+                        index++;
+                    }
+                    std::wstring closeTag(stream_ + nameStart, index - nameStart);
+
+                    // Skip any whitespace before '>'
+                    while (length_ > index && (stream_[index] == L' ' || stream_[index] == L'\t' ||
+                        stream_[index] == L'\r' || stream_[index] == L'\n'))
+                    {
+                        index++;
+                    }
+
+                    // Expect '>' to end the closing tag
+                    if (length_ > index && stream_[index] == L'>') {
+                        index++; // move past '>'
+                    }
+
+                    if (toLower(closeTag) == toLower(self->name)) {
+                        // Correct closing tag for this element
+                        self->Parse(attr);
+                        element->children.push_back(self);
+                        return index;
+                    }
+                    else {
+                        // Check if this closing tag actually belongs to a parent
                         shared_ptr<HtmlElement> parent = self->GetParent();
                         while (parent) {
-                            if (parent->name == value) {
-                                std::cerr << "WARN : element not closed <" << self->name << "> " << std::endl;
+                            if (toLower(parent->name) == toLower(closeTag)) {
+                                std::wcerr << L"WARN : element not closed <" << self->name << L">" << std::endl;
                                 self->Parse(attr);
                                 element->children.push_back(self);
-                                return pre - 2;
+                                return nameStart - 2; // rewind to before "</"
                             }
-
                             parent = parent->GetParent();
                         }
 
-                        std::cerr << "WARN : unexpected closed element </" << value << "> for <" << self->name
-                            << ">" << std::endl;
+                        // Unexpected closing tag
+                        std::wcerr << L"WARN : unexpected closed element </" << closeTag
+                            << L"> for <" << self->name << L">" << std::endl;
                         state = PARSE_ELEMENT_VALUE;
                     }
-                    else {
-                        self->Parse(attr);
-                        element->children.push_back(self);
-                        return SkipUntil(index, '>');
-                    }
                 }
+                break;
+
+                                          break;
+
                                           break;
                 }
             }
@@ -976,10 +999,10 @@ private:
         return index;
     }
 
-    size_t SkipUntil(size_t index, const char* data) {
+    size_t SkipUntil(size_t index, const wchar_t* data) {
         while (length_ > index) {
-            if (strncmp(stream_ + index, data, strlen(data)) == 0) {
-                return index + strlen(data);
+            if (wcsncmp(stream_ + index, data, wcslen(data)) == 0) {
+                return index + wcslen(data);
             }
             else {
                 index++;
@@ -989,7 +1012,7 @@ private:
         return index;
     }
 
-    size_t SkipUntil(size_t index, const char data) {
+    size_t SkipUntil(size_t index, const wchar_t data) {
         while (length_ > index) {
             if (stream_[index] == data) {
                 return ++index;
@@ -1003,48 +1026,49 @@ private:
     }
 
 private:
-    const char* stream_;
+    const wchar_t* stream_;
     size_t length_;
-    std::set<std::string> self_closing_tags_;
+    std::set<std::wstring> self_closing_tags_;
     shared_ptr<HtmlElement> root_;
 };
 
-static std::wstring toLowerW(const std::wstring& str)
+static std::wstring toLower(const std::wstring& str)
 {
     std::wstring lowerStr = str;
-    std::transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(), ::tolower);
+    std::transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(),
+        [](wchar_t c) -> wchar_t { return static_cast<wchar_t>(std::towlower(c)); });
     return lowerStr;
 }
 
-static std::string toLower(const std::string& str)
-{
-    std::string lowerStr = str;
-    std::transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(), ::tolower);
-    return lowerStr;
-}
+ 
 
 
-inline std::string EscapeForXPath(const std::string& value)
+inline std::wstring EscapeForXPath(const std::wstring& value)
 {
     // XPath doesn't allow unescaped single quotes inside single-quoted strings.
     // So we switch to using concat() in such cases.
-    if (value.find('\'') == std::string::npos) {
+    if (value.find('\'') == std::wstring::npos) {
         return value;  // safe to embed directly
     }
 
-    std::ostringstream oss;
-    oss << "concat(";
+    std::wostringstream oss;
+    oss << L"concat(";
     bool first = true;
-    std::istringstream ss(value);
-    std::string part;
-    while (std::getline(ss, part, '\'')) {
-        if (!first) oss << ", \"'\", ";
-        oss << "'" << part << "'";
+    std::wistringstream ss(value);
+    std::wstring part;
+    while (std::getline(ss, part, L'\'')) {
+        if (!first) oss << L", \"'\", ";
+        oss << L"'" << part << L"'";
         first = false;
     }
-    oss << ")";
+    oss << L")";
     return oss.str();
 }
 
+
+
 #endif
 
+
+
+ 
