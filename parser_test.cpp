@@ -1,7 +1,7 @@
 #include "html_parser.hpp"
 
 int main() {
-    std::string data("<html><body><div><span id=\"a\" class=\"x\">a</span><span id=\"b\">b</span></div></body></html>");
+    std::wstring data("<html><body><div><span id=\"a\" class=\"x\">a</span><span id=\"b\">b</span></div></body></html>");
     HtmlParser parser;
     shared_ptr<HtmlDocument> doc = parser.Parse(data.c_str(), data.size());
 
