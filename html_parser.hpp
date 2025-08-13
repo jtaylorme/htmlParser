@@ -38,16 +38,7 @@ static std::wstring toLower(const std::wstring& str);
 std::vector<std::wstring> TokenizeXPath(const std::wstring& input);
 std::wstring EscapeForXPath(const std::wstring& value);
 
-//####################################################
-//THESE ARE NOT NEEDED FOR PRODUCTION
-void myMsg(std::string caption, std::string txt);
-void myMsg(std::string caption, int txt);
-void myMsg(int caption, int txt);
-void myMsg(int caption, std::string txt);
-void myMsg(std::wstring caption, std::wstring txt);
-void myMsg(std::wstring caption, int txt);
-void myMsg(int caption, std::wstring txt);
-//####################################################
+ 
 
 static bool EqualIgnoreCase(const std::wstring& a, const std::wstring& b);
 static bool StartsWith(const std::wstring& s, const std::wstring& prefix);
