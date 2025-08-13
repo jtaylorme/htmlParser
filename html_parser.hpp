@@ -5,11 +5,11 @@
  * A Simple html parser.
  * More information can get from README.md
  *
- * 
+ *
  * Changed Version Copyright (c) 2025 DSI (jtaylor@jtdata.com)
  * Latest version available at: https://github.com/jtaylorme/html_parser
  *
- * Version 1.0.1 
+ * Version 1.0.2
  */
 
 #ifndef HTMLPARSER_HPP_
@@ -35,8 +35,31 @@ using std::weak_ptr;
 
 static std::wstring toLower(const std::wstring& str);
 
- std::wstring EscapeForXPath(const std::wstring& value);
- 
+std::vector<std::wstring> TokenizeXPath(const std::wstring& input);
+std::wstring EscapeForXPath(const std::wstring& value);
+
+//####################################################
+//THESE ARE NOT NEEDED FOR PRODUCTION
+void myMsg(std::string caption, std::string txt);
+void myMsg(std::string caption, int txt);
+void myMsg(int caption, int txt);
+void myMsg(int caption, std::string txt);
+void myMsg(std::wstring caption, std::wstring txt);
+void myMsg(std::wstring caption, int txt);
+void myMsg(int caption, std::wstring txt);
+//####################################################
+
+static bool EqualIgnoreCase(const std::wstring& a, const std::wstring& b);
+static bool StartsWith(const std::wstring& s, const std::wstring& prefix);
+static bool EndsWith(const std::wstring& s, const std::wstring& suffix);
+std::wstring Trim(const std::wstring& str);
+bool AttrContains(const std::map<std::wstring, std::wstring>& attrs, const std::wstring& name, const std::wstring& substring);
+bool AttrStartsWith(const std::map<std::wstring, std::wstring>& attrs, const std::wstring& name, const std::wstring& prefix);
+bool AttrEndsWith(const std::map<std::wstring, std::wstring>& attrs, const std::wstring& name, const std::wstring& suffix);
+bool ClassStartsWith(const std::vector<std::wstring>& classlist, const std::wstring& prefix);
+bool ClassEndsWith(const std::vector<std::wstring>& classlist, const std::wstring& suffix);
+bool ClassContains(const std::vector<std::wstring>& classlist, const std::wstring& contains);
+std::wstring ClearQuotes(std::wstring val);
 
 
 /**
@@ -105,7 +128,7 @@ public:
         return attribute;
     }
 
-    shared_ptr<HtmlElement> GetElementById(const std::wstring& id) 
+    shared_ptr<HtmlElement> GetElementById(const std::wstring& id)
     {
         for (HtmlElement::ChildIterator it = children.begin(); it != children.end(); ++it) {
             std::wstring gid = (*it)->GetAttribute(L"id");
@@ -126,7 +149,7 @@ public:
         GetElementsById(id, result);
         return result;
     }
-  
+
 
     std::vector<shared_ptr<HtmlElement> > GetElementsByClassName(const std::wstring& name, const std::wstring& tag = L"") {
         std::vector<shared_ptr<HtmlElement> > result;
@@ -176,175 +199,213 @@ public:
         GetElementByTagName(name, result);
         return result;
     }
-
-    // Enhanced SelectElement to support wildcard `*` and a few basic XPath-like improvements
-    void SelectElement(const std::wstring& rule, std::vector<shared_ptr<HtmlElement> >& result) {
-        if (rule.empty() || rule.at(0) != L'/' || name == L"plain") return;
-        std::wstring::size_type pos = 0;
-        if (rule.size() >= 2 && rule.at(1) == L'/') {
-            std::vector<shared_ptr<HtmlElement> > temp;
-            GetAllElement(temp);
-            pos = 1;
-            std::wstring next = rule.substr(pos);
-            if (next.empty()) {
-                for (size_t i = 0; i < temp.size(); i++) {
-                    InsertIfNotExists(result, temp[i]);
-                }
-            }
-            else {
-                for (size_t i = 0; i < temp.size(); i++) {
-                    temp[i]->SelectElement(next, result);;
-                }
-            }
+ 
+    bool IsLowerAlphaNumeric(const std::wstring& str) {
+        for (wchar_t c : str) {
+            if (!((c >= L'a' && c <= L'z') || (c >= L'0' && c <= L'9')))
+                return false;
         }
-        else {
-            std::wstring::size_type p = rule.find('/', 1);
-            std::wstring line;
-            if (p == std::wstring::npos) {
-                line = rule;
-                pos = rule.size();
-            }
-            else {
-                line = rule.substr(0, p);
-                pos = p;
-            }
-
-            enum { x_ele, x_wait_attr, x_attr, x_val };
-            std::wstring ele, attr, oper, val, cond;
-            int state = x_ele;
-            for (p = 1; p < pos; ) {
-                wchar_t c = line.at(p++);
-                switch (state) {
-                case x_ele: {
-                    if (c == L'@') {
-                        state = x_attr;
-                    }
-                    else if (c == L'!') {
-                        state = x_wait_attr;
-                        cond.append(1, c);
-                    }
-                    else if (c == L'[') {
-                        state = x_wait_attr;
-                    }
-                    else {
-                        ele.append(1, c);
-                    }
-                }
-                          break;
-
-                case x_wait_attr: {
-                    if (c == L'@') state = x_attr;
-                    else if (c == L'!') {
-                        cond.append(1, c);
-                    }
-                }
-                                break;
-
-                case x_attr: {
-                    if (c == L'!') {
-                        oper.append(1, c);
-                    }
-                    else if (c == L'=') {
-                        oper.append(1, c);
-                        state = x_val;
-                    }
-                    else if (c == L']') {
-                        state = x_ele;
-                    }
-                    else {
-                        attr.append(1, c);
-                    }
-                }
-                           break;
-
-                case x_val: {
-                    if (c == L']') {
-                        state = x_ele;
-                    }
-                    else {
-                        val.append(1, c);
-                    }
-                }
-                          break;
-                }
-            }
-
-            if (!val.empty() && val.at(0) == L'\'') {
-                val.erase(val.begin());
-            }
-
-            if (!val.empty() && val.at(val.size() - 1) == L'\'') {
-                val.pop_back();
-            }
-
-            bool matched = true;
-            if (!ele.empty()) {
-                if (toLower(name) != toLower(ele)) {
-                    matched = false;
-                }
-            }
-
-            if (cond == L"!") {
-                if (!attr.empty() && matched) {
-                    if (!oper.empty()) {
-                        std::wstring v = attribute[attr];
-                        if (oper == L"=") {
-                            if (v == val) matched = false;
-                            if (attr == L"class") {
-                                if (!HasClass(val)) matched = false;
-                            }
-
-                        }
-                        else if (oper == L"!=") {
-                            if (v == val) matched = false;
-                            if (attr == L"class") {
-                                if (HasClass(val)) matched = false;
-                            }
-
-                        }
-                    }
-                    else {
-                        if (attribute.find(attr) != attribute.end()) matched = false;
-                    }
-                }
-            }
-            else {
-                if (!attr.empty() && matched) {
-                    if (attribute.find(attr) == attribute.end()) {
-                        matched = false;
-                    }
-                    else {
-                        std::wstring v = attribute[attr];
-                        if (oper == L"=") {
-                            if (v != val) matched = false;
-                            if (attr == L"class") {
-                                if (!HasClass(val)) matched = false;
-                            }
-
-                        }
-                        else if (oper == L"!=") {
-                            if (v == val) matched = false;
-                            if (attr == L"class") {
-                                if (HasClass(val)) matched = false;
-                            }
-
-                        }
-                    }
-                }
-            }
-
-            std::wstring next = rule.substr(pos);
-            if (matched) {
-                if (next.empty())
-                    InsertIfNotExists(result, shared_from_this());
-                else {
-                    for (ChildIterator it = ChildBegin(); it != ChildEnd(); it++) {
-                        (*it)->SelectElement(next, result);
-                    }
-                }
-            }
-        };
+        return true;
     }
+
+    bool IsLowerAlphaOnly(const std::wstring& str) {
+        for (wchar_t ch : str) {
+            if (ch < L'a' || ch > L'z')
+                return false;
+        }
+        return !str.empty(); // optional: false if empty
+    }
+
+    // --- Entry Point ---
+    void SelectElement(const std::wstring& rule,
+        std::vector<std::shared_ptr<HtmlElement>>& result) {
+        std::vector<std::wstring> ruleTokens = TokenizeXPath(rule);
+
+      //If you need to debug. Uncomment below for a display of tokens.
+      // std::wstring list = L""; for (size_t i = 0; i < ruleTokens.size(); i++)   { list += ruleTokens[i] + L"\n"; if (i == ruleTokens.size() - 1)  myMsg(L"tokens: " + std::to_wstring(ruleTokens.size()), list);   }
+       
+        // Enforce rigid structure
+        if (ruleTokens.size() >= 2) ruleTokens[1] = toLower(ruleTokens[1]);
+        if (ruleTokens[0] != L"/" && ruleTokens[0] != L"//") return;
+        if (ruleTokens[1] != L"*" && !IsLowerAlphaNumeric(ruleTokens[1])) return;
+        if (ruleTokens.size() >= 3 && ruleTokens[2] != L"[") return;
+        if (ruleTokens.size() >= 3 && ruleTokens[2] == L"[" && ruleTokens.back() != L"]") return;
+        if (ruleTokens.size() >= 4) ruleTokens[3] = toLower(ruleTokens[3]);
+        if (ruleTokens.size() >= 4 && ruleTokens[3] != L"!" &&
+            ruleTokens[3] != L"@" &&
+            ruleTokens[3] != L"contains" &&
+            ruleTokens[3] != L"text" &&
+            ruleTokens[3] != L"starts-with" &&
+            ruleTokens[3] != L"ends-with") return;
+        this->SelectElement(ruleTokens, 0, result);
+    }
+
+    
+    // --- Recursive selector ---
+    bool SelectElement(const std::vector<std::wstring>& tokens,
+        size_t idx,
+        std::vector<std::shared_ptr<HtmlElement>>& results)
+    {
+        if (idx >= tokens.size()) return false;
+        bool matched = false;
+        const std::wstring& tok = tokens[idx];
+
+        // "/" direct child
+        if (tok == L"/") {
+            for (auto& c : children)
+                matched |= c->SelectElement(tokens, idx + 1, results);
+            return matched;
+        }
+
+
+        // "//" descendant-or-self
+        if (tok == L"//") {
+            for (auto& c : children) {
+                matched |= c->SelectElement(tokens, idx + 1, results); // next token
+                matched |= c->SelectElement(tokens, idx, results);     // keep descending
+            }
+            return matched;
+        }
+
+        // Match tag or "*"
+        if (tok == L"*" || EqualIgnoreCase(this->name, tok)) {
+            size_t nextIdx = idx + 1;
+           
+            if (nextIdx < tokens.size() && tokens[nextIdx] == L"[") {
+                size_t closeIdx = tokens.size() - 1; // rigid: last token must be "]"
+
+                std::wstring condType = tokens[3]; // rigid structure: token 3
+
+                bool condMatched = false;
+
+                if (condType == L"@") {
+                    if (tokens[5] == L"=") {
+                        std::wstring name = tokens[4];
+                        std::wstring val = tokens[6];
+                        val = ClearQuotes(val);
+
+                        auto it = attribute.find(name);
+                        if (it != attribute.end()) {
+                            if (name == L"class") {
+                                condMatched = HasClass(val);
+                            }
+                            else {
+                                condMatched = (it->second == val);
+                            }
+                        }
+                    }
+                }
+                else if (condType == L"text") 
+                {
+                    condMatched = false;
+                    if (tokens[6] == L",")
+                    {
+                        std::wstring name = Trim(tokens[5]);
+                        std::wstring val = Trim(tokens[7]);
+                        std::wstring text = this->text();
+                        val = ClearQuotes(val);
+                       // myMsg(name + L" - " + val, text);
+                        if (name == L"equals")
+                        {
+                            if (val == text)
+                                condMatched = true;
+                        }
+                        else if (name == L"contains")
+                        {
+                            if (text.find(val) != std::wstring::npos)
+                                condMatched = true;
+                        }
+                        else if (name == L"starts-with")
+                        {
+                            if (StartsWith(text, val))
+                                condMatched = true;
+                        }
+                        else if (name == L"ends-with")
+                        {
+                            if (EndsWith(text, val))
+                            {
+                                condMatched = true;
+                            }
+                        }
+                    }
+                }
+                else if (condType == L"contains") {
+                    if (tokens[7] == L",")
+                    {
+                        std::wstring name = Trim(tokens[6]); 
+                        std::wstring val = Trim(tokens[8]);
+                        val = ClearQuotes(val);
+                        if (name == L"class") {
+                            condMatched = ClassContains(classlist, val);   
+                        }
+                        else {
+                            condMatched = AttrContains(attribute, name, val);
+                        }
+                    }
+                }
+                else if (condType == L"starts-with") {
+                    if (tokens[7] == L",")
+                    {
+                        std::wstring name = Trim(tokens[6]);
+                        std::wstring val = Trim(tokens[8]);
+                        if (!val.empty() && val.front() == L'\'') val.erase(val.begin());
+                        if (!val.empty() && val.back() == L'\'') val.pop_back();
+
+                        if (name == L"class") {
+                           condMatched = ClassStartsWith(classlist, val);  
+                        }
+                        else {
+                            condMatched = AttrStartsWith(attribute, name, val);
+                        }
+                    }
+                }
+                else if (condType == L"ends-with") {
+                    if (tokens[7] == L",")
+                    {
+                        std::wstring name = Trim(tokens[6]);
+                        std::wstring val = Trim(tokens[8]);
+                        if (!val.empty() && val.front() == L'\'') val.erase(val.begin());
+                        if (!val.empty() && val.back() == L'\'') val.pop_back();
+
+                        if (name == L"class") {
+                            condMatched = ClassEndsWith(classlist, val);  
+                        }
+                        else {
+                            condMatched = AttrEndsWith(attribute, name, val);
+                        }
+                    }
+                }
+
+                if (!condMatched) return false;
+
+                // If this is the last token, push result
+                if (closeIdx == tokens.size() - 1) {
+                    results.push_back(shared_from_this());
+                    return true;
+                }
+
+                // Else continue recursion after ]
+                for (auto& c : children)
+                    matched |= c->SelectElement(tokens, closeIdx + 1, results);
+                return matched;
+            }
+
+            // No condition, check end of tokens
+            if (nextIdx == tokens.size()) {
+                results.push_back(shared_from_this());
+                return true;
+            }
+
+            // Recurse to children
+            for (auto& c : children)
+                matched |= c->SelectElement(tokens, nextIdx, results);
+            return matched;
+        }
+
+        return false;
+    }
+
+    //********************************************************************************
 
     shared_ptr<HtmlElement> GetParent() {
         return parent.lock();
@@ -408,7 +469,7 @@ public:
 
         }
         else {
-            el->children[0]->value = text; 
+            el->children[0]->value = text;
         }
 
         return 0;
@@ -466,11 +527,11 @@ public:
             if (++i < children.size()) {
                 std::wstring ele = children[i]->GetName();
                 if (ele == L"td") {
-                    str.append( L"\t");
+                    str.append(L"\t");
                 }
                 else if (ele == L"tr" || ele == L"br" || ele == L"div" || ele == L"p" || ele == L"hr" || ele == L"area" ||
                     ele == L"h1" || ele == L"h2" || ele == L"h3" || ele == L"h4" || ele == L"h5" || ele == L"h6" || ele == L"h7") {
-                    str.append( L"\n");
+                    str.append(L"\n");
                 }
             }
         }
@@ -512,7 +573,7 @@ public:
             return;
         }
 
-        str.append( L"<" + name);
+        str.append(L"<" + name);
         std::map<std::wstring, std::wstring>::const_iterator it = attribute.begin();
         for (; it != attribute.end(); it++) {
             str.append(L" " + it->first + L"=\"" + it->second + L"\"");
@@ -532,7 +593,7 @@ public:
     }
 
 private:
-   
+
 
     void GetElementsByClassName(const std::wstring& cls, const std::wstring& tag, std::vector<std::shared_ptr<HtmlElement>>& result)
     {
@@ -552,7 +613,8 @@ private:
 
     void GetElementsById(const std::wstring& id, std::vector<shared_ptr<HtmlElement> >& result) {
         std::wstring xpath = L"//*[@id='" + EscapeForXPath(id) + L"']";
-        SelectElement(xpath, result);
+        std::vector<std::wstring> ruleToken = TokenizeXPath(xpath);
+        SelectElement(ruleToken, ruleToken.size(), result);
         return;
     }
 
@@ -661,7 +723,7 @@ private:
         }
 
         // After parsing attributes into `attribute`
-        auto it = attribute.find( L"class");
+        auto it = attribute.find(L"class");
         if (it != attribute.end()) {
             classlist.clear();
             std::wistringstream iss(it->second);
@@ -672,7 +734,7 @@ private:
         }
 
     }
- 
+
 
     static void InsertIfNotExists(std::vector<std::shared_ptr<HtmlElement>>& vec, const std::shared_ptr<HtmlElement>& ele) {
         for (size_t i = 0; i < vec.size(); i++) {
@@ -686,7 +748,7 @@ private:
 private:
     void UpdateClassAttribute() {
         if (classlist.empty()) {
-            attribute.erase( L"class");
+            attribute.erase(L"class");
             return;
         }
         std::wstring combined;
@@ -712,7 +774,8 @@ private:
 class HtmlDocument {
 public:
     HtmlDocument(shared_ptr<HtmlElement>& root)
-        : root_(root) {}
+        : root_(root) {
+    }
 
     std::shared_ptr<HtmlElement> GetRoot() {
         return root_;
@@ -724,7 +787,7 @@ public:
     std::vector<shared_ptr<HtmlElement> >  GetElementsById(const std::wstring& id) {
         return root_->GetElementsById(id);
     }
-    
+
     std::vector<shared_ptr<HtmlElement> > GetElementsByClassName(const std::wstring& name) {
         return root_->GetElementsByClassName(name);
     }
@@ -732,10 +795,16 @@ public:
         return root_->GetElementByTagName(name);
     }
 
-    std::vector<shared_ptr<HtmlElement> > SelectElement(const std::wstring& rule, std::vector<shared_ptr<HtmlElement>>& result) {
+    void SelectElement(const std::wstring& rule, std::vector<std::shared_ptr<HtmlElement>>& result) {
+        std::vector<std::wstring> ruleToken = TokenizeXPath(rule);
+        this->SelectElement(ruleToken, 0, result);
+    }
+
+ 
+    std::vector<shared_ptr<HtmlElement> > SelectElement(std::vector<std::wstring> ruleToken, size_t rtSize, std::vector<shared_ptr<HtmlElement>>& result) {
         HtmlElement::ChildIterator it = root_->ChildBegin();
         for (; it != root_->ChildEnd(); it++) {
-            (*it)->SelectElement(rule, result);
+            (*it)->SelectElement(ruleToken, rtSize, result);
         }
 
         return result;
@@ -983,9 +1052,9 @@ private:
                 }
                 break;
 
-                                          break;
+                break;
 
-                                          break;
+                break;
                 }
             }
         }
@@ -1034,7 +1103,7 @@ static std::wstring toLower(const std::wstring& str)
     return lowerStr;
 }
 
- 
+
 
 
 inline std::wstring EscapeForXPath(const std::wstring& value)
@@ -1059,10 +1128,193 @@ inline std::wstring EscapeForXPath(const std::wstring& value)
     return oss.str();
 }
 
+ 
+#include <cctype>
+
+std::vector<std::wstring> TokenizeXPath(const std::wstring& input) {
+    std::vector<std::wstring> tokens;
+    size_t i = 0;
+    size_t len = input.size();
+
+    auto isOperatorChar = [](wchar_t c) {
+        return (c == '=' || c == '!' || c == '<' || c == '>');
+        };
+
+    while (i < len) {
+        wchar_t c = input[i];
+
+        // Skip whitespace
+        if (std::isspace(c)) {
+            ++i;
+            continue;
+        }
+
+        // Double slash "//"
+        if (c == '/' && i + 1 < len && input[i + 1] == '/') {
+            tokens.push_back(L"//");
+            i += 2;
+            continue;
+        }
+
+        // "::" axis operator
+        if (c == ':' && i + 1 < len && input[i + 1] == ':') {
+            tokens.push_back(L"::");
+            i += 2;
+            continue;
+        }
+
+        // Single char special symbols
+        if (c == L'@' || c == L'/' || c == L'[' || c == L']' || c == L'(' || c == L')' || c == L',') {
+            tokens.push_back(std::wstring(1, c));
+            ++i;
+            continue;
+        }
+
+        // Operators (=, !=, <=, >=, <, >)
+        if (isOperatorChar(c)) {
+            std::wstring op(1, c);
+            if (i + 1 < len && isOperatorChar(input[i + 1])) {
+                op.push_back(input[i + 1]);
+                ++i;
+            }
+            tokens.push_back(op);
+            ++i;
+            continue;
+        }
+
+        // Quoted string (single or double quotes)
+        if (c == L'"' || c == L'\'') {
+            wchar_t quote = c;
+            size_t start = i;
+            ++i;
+            while (i < len && input[i] != quote) {
+                // Handle escaped quotes inside string
+                if (input[i] == L'\\' && i + 1 < len) {
+                    i += 2;
+                    continue;
+                }
+                ++i;
+            }
+            if (i < len) ++i; // Include closing quote
+            tokens.push_back(input.substr(start, i - start));
+            continue;
+        }
+
+        // Identifiers, numbers, functions
+        if (std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '-' || c == '.') {
+            size_t start = i;
+            while (i < len &&
+                (std::isalnum(static_cast<unsigned char>(input[i])) ||
+                    input[i] == '_' || input[i] == '-' || input[i] == '.')) {
+                ++i;
+            }
+            tokens.push_back(input.substr(start, i - start));
+            continue;
+        }
+
+        // Fallback: just push the character
+        tokens.push_back(std::wstring(1, c));
+        ++i;
+    }
+
+    return tokens;
+}
+
+
+// Helper functions for wide strings ----------------------------------
+ 
+ 
+static bool EqualIgnoreCase(const std::wstring& a, const std::wstring& b) {
+    if (a.size() != b.size()) return false;
+    for (size_t i = 0; i < a.size(); ++i) {
+        if (towlower(a[i]) != towlower(b[i])) return false;
+    }
+    return true;
+}
+
+static bool StartsWith(const std::wstring& str, const std::wstring& prefix) {
+    if (prefix.length() > str.length()) 
+        return false; // Suffix cannot be longer than the main string
+
+    return str.compare(0, prefix.length(), prefix) == 0;
+}
+
+static bool EndsWith(const std::wstring& str, const std::wstring& suffix) {
+ 
+    if (suffix.length() > str.length()) 
+        return false; // Suffix cannot be longer than the main string
+
+    // Extract a substring from mainString starting at the position where the suffix would begin and compare it with the suffix.
+    return str.compare(str.length() - suffix.length(), suffix.length(), suffix) == 0;
+}
+
+static std::wstring Trim(const std::wstring& s) {
+    size_t start = 0;
+    while (start < s.size() && iswspace(s[start])) start++;
+    size_t end = s.size();
+    while (end > start && iswspace(s[end - 1])) end--;
+    return s.substr(start, end - start);
+}
+
+bool AttrContains(const std::map<std::wstring, std::wstring>& attrs, const std::wstring& name, const std::wstring& substring) {
+    auto it = attrs.find(name);
+    if (it == attrs.end()) return false;
+    return it->second.find(substring) != std::wstring::npos;
+}
+
+bool AttrStartsWith(const std::map<std::wstring, std::wstring>& attrs, const std::wstring& name, const std::wstring& prefix) {
+    auto it = attrs.find(name);
+    if (it == attrs.end()) return false;
+    return StartsWith(it->second, prefix);
+}
+
+bool AttrEndsWith(const std::map<std::wstring, std::wstring>& attrs, const std::wstring& name, const std::wstring& suffix) {
+    auto it = attrs.find(name);
+    if (it == attrs.end()) return false;
+    return EndsWith(it->second, suffix);
+}
+
+
+// Check if any class starts with `prefix`
+bool ClassStartsWith(const std::vector<std::wstring>& classlist, const std::wstring& prefix) {
+    for (const auto& c : classlist) {
+        if (StartsWith(c, prefix))
+            return true;
+    }
+    return false;
+}
+
+// Check if any class ends with `suffix`
+bool ClassEndsWith(const std::vector<std::wstring>& classlist, const std::wstring& suffix) {
+    for (const auto& c : classlist) {
+        if (EndsWith(c, suffix))
+            return true;
+    }
+    return false;
+}
+
+// Check if any class contains `contains`
+bool ClassContains(const std::vector<std::wstring>& classlist, const std::wstring& contains) {
+    for (const auto& c : classlist) {
+        if (c.find(contains) != std::wstring::npos)
+            return true;
+    }
+    return false;
+}
+
+
+std::wstring ClearQuotes(std::wstring val)
+{
+    if (!val.empty() && val.front() == L'\'') val.erase(val.begin());
+    if (!val.empty() && val.back() == L'\'') val.pop_back();
+    if (!val.empty() && val.front() == L'"') val.erase(val.begin());
+    if (!val.empty() && val.back() == L'"') val.pop_back();
+    return val;
+}
+
 
 
 #endif
 
 
 
- 
