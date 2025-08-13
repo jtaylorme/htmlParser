@@ -15,6 +15,8 @@ All my work has been on Windows and no good way to test other platforms so may n
 
 -Changed html method to OuterHTML
 
+-Ehanced SelectElement
+
 -Added InnerHTML
 
 -Added SetAttribute
@@ -58,6 +60,28 @@ All my work has been on Windows and no good way to test other platforms so may n
   toLowerW
 
   EscapeForXPath
+
+  EqualIgnoreCase 
+
+  StartsWith 
+
+  EndsWith 
+
+  Trim 
+
+  AttrContains 
+
+  AttrStartsWith 
+
+  AttrEndsWith 
+
+  ClassStartsWith 
+
+  ClassEndsWith 
+
+  ClassContains 
+
+  ClearQuotes 
 
 
 ## Usage
