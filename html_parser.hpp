@@ -34,12 +34,8 @@ using std::shared_ptr;
 using std::weak_ptr;
 
 static std::wstring toLower(const std::wstring& str);
-
 std::vector<std::wstring> TokenizeXPath(const std::wstring& input);
 std::wstring EscapeForXPath(const std::wstring& value);
-
- 
-
 static bool EqualIgnoreCase(const std::wstring& a, const std::wstring& b);
 static bool StartsWith(const std::wstring& s, const std::wstring& prefix);
 static bool EndsWith(const std::wstring& s, const std::wstring& suffix);
