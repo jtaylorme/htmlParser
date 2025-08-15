@@ -9,7 +9,7 @@
  * Changed Version Copyright (c) 2025 DSI (jtaylor@jtdata.com)
  * Latest version available at: https://github.com/jtaylorme/html_parser
  *
- * Version 1.0.2
+ * Version 1.0.3
  */
 
 #ifndef HTMLPARSER_HPP_
@@ -33,20 +33,23 @@ using std::enable_shared_from_this;
 using std::shared_ptr;
 using std::weak_ptr;
 
-static std::wstring toLower(const std::wstring& str);
-std::vector<std::wstring> TokenizeXPath(const std::wstring& input);
-std::wstring EscapeForXPath(const std::wstring& value);
-static bool EqualIgnoreCase(const std::wstring& a, const std::wstring& b);
-static bool StartsWith(const std::wstring& s, const std::wstring& prefix);
-static bool EndsWith(const std::wstring& s, const std::wstring& suffix);
-std::wstring Trim(const std::wstring& str);
-bool AttrContains(const std::map<std::wstring, std::wstring>& attrs, const std::wstring& name, const std::wstring& substring);
-bool AttrStartsWith(const std::map<std::wstring, std::wstring>& attrs, const std::wstring& name, const std::wstring& prefix);
-bool AttrEndsWith(const std::map<std::wstring, std::wstring>& attrs, const std::wstring& name, const std::wstring& suffix);
-bool ClassStartsWith(const std::vector<std::wstring>& classlist, const std::wstring& prefix);
-bool ClassEndsWith(const std::vector<std::wstring>& classlist, const std::wstring& suffix);
-bool ClassContains(const std::vector<std::wstring>& classlist, const std::wstring& contains);
-std::wstring ClearQuotes(std::wstring val);
+
+ 
+
+inline std::wstring toLower(const std::wstring& str);
+inline std::vector<std::wstring> TokenizeXPath(const std::wstring& input);
+inline std::wstring EscapeForXPath(const std::wstring& value);
+inline static bool EqualIgnoreCase(const std::wstring& a, const std::wstring& b);
+inline static bool StartsWith(const std::wstring& s, const std::wstring& prefix);
+inline static bool EndsWith(const std::wstring& s, const std::wstring& suffix);
+inline std::wstring Trim(const std::wstring& str);
+inline bool AttrContains(const std::map<std::wstring, std::wstring>& attrs, const std::wstring& name, const std::wstring& substring);
+inline bool AttrStartsWith(const std::map<std::wstring, std::wstring>& attrs, const std::wstring& name, const std::wstring& prefix);
+inline bool AttrEndsWith(const std::map<std::wstring, std::wstring>& attrs, const std::wstring& name, const std::wstring& suffix);
+inline bool ClassStartsWith(const std::vector<std::wstring>& classlist, const std::wstring& prefix);
+inline bool ClassEndsWith(const std::vector<std::wstring>& classlist, const std::wstring& suffix);
+inline bool ClassContains(const std::vector<std::wstring>& classlist, const std::wstring& contains);
+inline std::wstring ClearQuotes(std::wstring val);
 
 
 /**
@@ -207,9 +210,11 @@ public:
     void SelectElement(const std::wstring& rule,
         std::vector<std::shared_ptr<HtmlElement>>& result) {
         std::vector<std::wstring> ruleTokens = TokenizeXPath(rule);
-
-      //If you need to debug. Uncomment below for a display of tokens.
-      // std::wstring list = L""; for (size_t i = 0; i < ruleTokens.size(); i++)   { list += ruleTokens[i] + L"\n"; if (i == ruleTokens.size() - 1)  myMsg(L"tokens: " + std::to_wstring(ruleTokens.size()), list);   }
+      
+       //***************************************************************************
+       //If you need to debug. Uncomment below for a display of tokens.
+       // std::wstring list = L""; for (size_t i = 0; i < ruleTokens.size(); i++)   { list += ruleTokens[i] + L"\n"; if (i == ruleTokens.size() - 1)  myMsg(L"tokens: " + std::to_wstring(ruleTokens.size()), list);   }
+       //***************************************************************************
        
         // Enforce rigid structure
         if (ruleTokens.size() >= 2) ruleTokens[1] = toLower(ruleTokens[1]);
@@ -279,6 +284,15 @@ public:
                             else {
                                 condMatched = (it->second == val);
                             }
+                        }
+                    }
+                    else if (tokens[5] == L"]")
+                    {
+                        std::wstring name = tokens[4];
+                     
+                        auto it = attribute.find(name);
+                        if (it != attribute.end()) {
+                            condMatched = true;
                         }
                     }
                 }
@@ -609,7 +623,7 @@ private:
         for (HtmlElement::ChildIterator it = children.begin(); it != children.end(); ++it) {
             if (_wcsicmp((*it)->name.c_str(), name.c_str()) == 0)
                 InsertIfNotExists(result, *it);
-
+            
             (*it)->GetElementByTagName(name, result);
         }
     }
@@ -1279,7 +1293,7 @@ bool ClassEndsWith(const std::vector<std::wstring>& classlist, const std::wstrin
     }
     return false;
 }
-
+ 
 // Check if any class contains `contains`
 bool ClassContains(const std::vector<std::wstring>& classlist, const std::wstring& contains) {
     for (const auto& c : classlist) {
